@@ -49,7 +49,9 @@ run the viewer through `UnrealEditor.exe -game`, which `demo.ps1 play` does.
 Scene names are the ones `scripts/demo.sh` already uses in the vrgrid repo —
 `foveation`, `ghosts-off`, `ghosts-on`, `traffic`, `reflectivity`, `features` —
 so asking for `ghosts-on` here means the same sequence, frame range and colour
-layer it means there.
+layer it means there. One name is **not** on that list: `seq00-full`, the
+full-route bake the driving simulation reads, which has no Rerun counterpart.
+`.\scripts\demo.ps1 list` marks it.
 
 `-Rrd` is what makes the side-by-side honest: one pass, one `MapEngine`, one
 Patchwork++ lifetime. Two separate runs would be two neighbouring truths.
@@ -248,16 +250,35 @@ no invented turns — so the bends the car takes are the bends the dataset took.
 4,533 samples, 3,709 m on seq 00.
 
 ```powershell
-.\scripts\demo.ps1 bake seq00-full --light      # 4,541 frames -> ~20 MB
+.\scripts\demo.ps1 bake seq00-full -Light      # 4,541 frames -> ~20 MB
 & "$UE\Engine\Binaries\Win64\UnrealEditor.exe" .\VRgridViewer\VRgridViewer.uproject `
     -game -windowed -ResX=1600 -ResY=900 `
     -VrgMode=sim -VrgScene=.\scenes\seq00-full
 ```
 
-`--light` matters: without it a full-sequence bake writes the point cloud and
-the occupancy layers for every frame and lands at **13 GB**. Light mode skips
+Light mode matters: without it a full-sequence bake writes the point cloud and
+the occupancy layers for every frame and lands at **13 GB**. It skips
 `PNTS`/`GHST`/`OCCU`/`FREE`/`UNKN` and keeps the trajectory and the ring
 schedule, which is all the simulation reads.
+
+`seq00-full` is baked light **whether or not `-Light` is given** — the preset in
+`export_scene.py` carries it, so the 13 GB version is not one forgotten flag
+away. The switch is there for the other scenes. It is `-Light`, PowerShell’s
+single-dash spelling: a `--light` token cannot bind to a PowerShell parameter
+at all and is rejected as a stray positional argument. The exporter’s own flag,
+if you call it directly rather than through `demo.ps1`, is still `--light`.
+
+`seq00-full` is **Unreal-only**. Every other name here is one `scripts/demo.sh`
+uses in the vrgrid repo, and that correspondence is load-bearing; this one has
+no Rerun counterpart to correspond to, because the Rerun demo has no full-route
+scene. It is kept in a separate table on both sides (`UNREAL_ONLY_SCENES` in
+`export_scene.py`, `$UnrealOnlyScenes` in `demo.ps1`) so the matching list stays
+a list of the shared names. `bake all` does not include it.
+
+For a full-fidelity bake of the same route, skip `--scene` and ask for the
+sequence directly — `python exporter/export_scene.py --seq 00` takes every
+frame with no preset and writes to `scenes/seq00`. See `RERUN-VS-UNREAL.md`
+§7 for what that costs.
 
 ### Keys
 

@@ -5,6 +5,7 @@
     .\scripts\demo.ps1 check                 preflight -- engine, toolchain, data, vrgrid
     .\scripts\demo.ps1 bake foveation        export one scene (or 'all')
     .\scripts\demo.ps1 bake ghosts-on -Rrd   export the scene AND the .rrd, in one pass
+    .\scripts\demo.ps1 bake seq00-full -Light  the whole route, trajectory only (~20 MB)
     .\scripts\demo.ps1 build                 compile the Unreal module
     .\scripts\demo.ps1 materials             generate the per-instance colour materials (once)
     .\scripts\demo.ps1 play foveation        open the scene in the Unreal MAP VIEWER
@@ -13,13 +14,21 @@
     .\scripts\demo.ps1 list
 
   The scene names are the ones the Rerun demo uses, so 'ghosts-on' means the
-  same sequence, frame range and colour layer in both windows.
+  same sequence, frame range and colour layer in both windows. 'seq00-full' is
+  the one exception -- it is Unreal-only, because the Rerun demo has no
+  full-route scene; the DRIVING SIMULATION reads the whole trajectory out of it.
+
+  -Light skips the sweep and the occupancy layers. Only the simulation needs a
+  full-length bake, and it reads neither: 4,541 frames is ~20 MB light and
+  ~13 GB without. `bake seq00-full` is light whether or not -Light is given --
+  the preset carries it, so the 13 GB version is not one forgotten flag away.
 #>
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)][string]$Command = "help",
     [Parameter(Position = 1)][string]$Scene = "",
     [switch]$Rrd,
+    [switch]$Light,
     [switch]$Diag,
     [int]$Shot = -1,
     [int]$Frames = 0,
@@ -31,7 +40,14 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 $Project = Join-Path $Root "VRgridViewer\VRgridViewer.uproject"
 $ScenesDir = Join-Path $Root "scenes"
+# The names `scripts/demo.sh: scene_args()` uses in the vrgrid repo. This list
+# has to keep matching that one, so nothing Unreal-only goes in it.
 $Scenes = @("foveation", "ghosts-off", "ghosts-on", "traffic", "reflectivity", "features")
+# Unreal-only, and kept apart for that reason -- see export_scene.py's
+# UNREAL_ONLY_SCENES. `bake all` stays on $Scenes: a full-route bake is 4,541
+# frames and does not belong in a loop someone runs to refresh the demo.
+$UnrealOnlyScenes = @("seq00-full")
+$AllScenes = $Scenes + $UnrealOnlyScenes
 
 function Say($m) { Write-Host $m -ForegroundColor Cyan }
 function Warn($m) { Write-Host $m -ForegroundColor Yellow }
@@ -101,7 +117,7 @@ switch ($Command) {
 }
 
 "bake" {
-    if (-not $Scene) { Die "which scene? try: $($Scenes -join ', ') , or 'all'" }
+    if (-not $Scene) { Die "which scene? try: $($AllScenes -join ', ') , or 'all'" }
     $dataRoot = Resolve-DataRoot
     if (-not $dataRoot) { Die "no KITTI data found under $VrgridRepo (expected data\dataset\poses)" }
     $env:VRGRID_DATA_ROOT = $dataRoot
@@ -112,6 +128,7 @@ switch ($Command) {
         $args = @((Join-Path $Root "exporter\export_scene.py"), "--scene", $s,
                   "--out", (Join-Path $ScenesDir $s))
         if ($Rrd) { $args += "--rrd" }
+        if ($Light) { $args += "--light" }
         if ($Frames -gt 0) { $args += @("--frames", $Frames) }
         python @args
     }
@@ -194,7 +211,10 @@ switch ($Command) {
     & $editor "$Project" -game -windowed -ResX=1600 -ResY=900 -VrgScene="$dir"
 }
 
-"list" { $Scenes | ForEach-Object { Write-Host $_ } }
+"list" {
+    $Scenes | ForEach-Object { Write-Host $_ }
+    $UnrealOnlyScenes | ForEach-Object { Write-Host "$_   (Unreal only -- no Rerun counterpart)" }
+}
 
 default {
     Get-Help $PSCommandPath -Detailed | Out-String | Write-Host

@@ -40,10 +40,34 @@ SCENES = {
                          features=True),
 }
 
+# ⚑ UNREAL-ONLY. Deliberately NOT in SCENES above.
+#   That table has to keep matching `scripts/demo.sh: scene_args()` in the
+#   vrgrid repo one name at a time -- a scene that means one thing in Rerun
+#   and another in Unreal is worse than no scene, and a name that exists on
+#   one side only is exactly the drift it guards against. This one has no
+#   Rerun counterpart to drift from: the Rerun demo has no full-route scene,
+#   and `seq00-full` exists because the DRIVING SIMULATION reads the whole
+#   trajectory out of a single export.
+#
+#   `frames=None` means the whole sequence -- `iter_pipeline(max_frames=None)`
+#   runs to the end. `light=True` is not a default anyone should have to
+#   remember: without it a full-sequence bake writes the sweep and the
+#   occupancy layers for all 4,541 frames and lands at ~13 GB, against ~20 MB
+#   light, and the simulation reads neither of those layers. For a
+#   full-fidelity bake of the same route, skip --scene and say
+#   `--seq 00` (all frames, no preset), which writes to scenes/seq00.
+UNREAL_ONLY_SCENES = {
+    "seq00-full":   dict(seq="00", start_frame=0,    frames=None, light=True),
+}
+
+#: What `--scene` accepts. Kept separate from SCENES so the demo.sh check
+#: above stays a check on six names rather than seven.
+ALL_SCENES = {**SCENES, **UNREAL_ONLY_SCENES}
+
 
 def main(argv=None):
     p = argparse.ArgumentParser(prog="export_scene")
-    p.add_argument("--scene", choices=sorted(SCENES), default=None,
+    p.add_argument("--scene", choices=sorted(ALL_SCENES), default=None,
                    help="a named demo scene; overridden by the flags below")
     p.add_argument("--seq", default=None)
     p.add_argument("--frames", type=int, default=None)
@@ -72,7 +96,7 @@ def main(argv=None):
     p.add_argument("--no-patchworkpp", action="store_true")
     args = p.parse_args(argv)
 
-    preset = dict(SCENES.get(args.scene, {})) if args.scene else {}
+    preset = dict(ALL_SCENES.get(args.scene, {})) if args.scene else {}
     seq = args.seq or preset.get("seq")
     if seq is None:
         p.error("need --scene or --seq")
@@ -82,6 +106,9 @@ def main(argv=None):
     color_by = args.color_by or preset.get("color_by", "class")
     show_ghosts = args.show_ghosts or preset.get("show_ghosts", False)
     features = args.features or preset.get("features", False)
+    # A preset may turn --light ON; nothing turns it off, which is the point
+    # for seq00-full -- the 13 GB bake should not be one forgotten flag away.
+    light = args.light or preset.get("light", False)
 
     out = args.out or os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -122,7 +149,7 @@ def main(argv=None):
     full_argv = list(sys.argv) if argv is None else [sys.argv[0], *argv]
     sink_kwargs = dict(engine=engine, color_by=color_by, palette=args.palette,
                        ghost_removal=not show_ghosts, features=features,
-                       seq=seq, scene=args.scene, light=args.light,
+                       seq=seq, scene=args.scene, light=light,
                        use_patchworkpp=not args.no_patchworkpp,
                        rrd=bool(args.rrd), argv=full_argv)
     if args.map_interval is not None:
