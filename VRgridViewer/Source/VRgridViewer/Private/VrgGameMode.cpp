@@ -1,5 +1,6 @@
 #include "VrgGameMode.h"
 
+#include "VrgHud.h"
 #include "VrgSceneActor.h"
 #include "VrgSimActor.h"
 #include "Misc/CommandLine.h"
@@ -17,6 +18,12 @@ AVrgGameMode::AVrgGameMode()
 	// free-flies if someone wants to leave the chase camera.
 	DefaultPawnClass = ASpectatorPawn::StaticClass();
 	PlayerControllerClass = APlayerController::StaticClass();
+
+	// The standing disclaimer, on BOTH windows -- AVrgHud picks its own text
+	// from -VrgMode. Set here rather than left to the engine default, because
+	// the default AHUD draws nothing and the sim reads as a planner braking
+	// for a detected pedestrian when nothing on screen says otherwise.
+	HUDClass = AVrgHud::StaticClass();
 }
 
 void AVrgGameMode::StartPlay()

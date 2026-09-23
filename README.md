@@ -171,7 +171,11 @@ the 278 MB `foveation.rrd` beside it.
   not wall clock, so it does not drift against the `.rrd` over a long scene.
 
 Keys: `Space` pause · `←`/`→` scrub · `Home` restart · `G` ghosts · `P` points
-· `F` free · `U` unknown · `C` confidence.
+· `F` free · `U` unknown · `C` confidence · `H` hide the disclaimer label.
+
+The label in the bottom-left corner reads **“Same run as the Rerun window —
+rendering only, no numbers produced here.”** It is on by default; `H` hides it.
+See [The disclaimer label](#the-disclaimer-label).
 
 ### The black screen, and the three bugs behind it
 
@@ -213,6 +217,31 @@ different thing on purpose.
 > real-world picture that runs beside the Rerun map so an audience can see what
 > the sensor is looking at. Accuracy lives entirely in the Rerun window.
 
+### The disclaimer label
+
+That paragraph is in the README, where nobody watching the demo is looking, so
+it is **also on screen**, bottom-left, in both windows and on by default:
+
+```
+sim          Visualisation — route from KITTI seq 00, rings from the VRgrid schedule.
+             Traffic, pedestrians and vehicle behaviour are simulated, not VRgrid output.
+
+map viewer   Same run as the Rerun window — rendering only, no numbers produced here.
+```
+
+The sim wording is specific because the sim overclaims in a specific way. Press
+`N` and a pedestrian steps out and the car slows — and that yield is computed
+from `AVrgSimActor`’s **own** pedestrian array, not from anything the perception
+stack produced. VRgrid detects nothing here and has no planner to brake with.
+Uncaptioned, the sequence reads as “perception saw a person, the car braked”,
+which is a claim this project does not make. See `RERUN-VS-UNREAL.md` §3b for
+what the yield actually is.
+
+`H` hides it. It defaults to **on** rather than off because a label that has to
+be switched on is a label that is off in every screenshot and every recording.
+It is drawn by `AVrgHud` through `AHUD::DrawText` — Canvas, not UMG, so it needs
+no `.uasset` and cannot fail to load.
+
 What it *is* faithful to is the **route**. It follows the exact exported KITTI
 trajectory — every pose from the `TRAJ` chunk of `final.vrgf`, no resampling,
 no invented turns — so the bends the car takes are the bends the dataset took.
@@ -236,6 +265,7 @@ schedule, which is all the simulation reads.
 |---|---|
 | `B` | blind spot only ⟷ all accuracy bands |
 | `N` | trigger a scripted pedestrian crossing ahead of the car |
+| `H` | hide / show the disclaimer label (on by default) |
 
 ### The two things that are one continuous mesh, and why
 
