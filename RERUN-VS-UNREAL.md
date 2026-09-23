@@ -27,6 +27,34 @@ Where the Unreal side did drift from the data it is listed here and fixed - see
 sections 3 and 3b, where the car's speed profile and its yielding behaviour
 were both brought back to what the recording does.
 
+### One number in this repository must never be quoted
+
+`scenes/<name>/stats.jsonl` carries `perception_ms` and `engine_ms` for every
+frame. **Those are bake timings, not latency results, and they are not
+reportable.** Three separate reasons, each sufficient on its own:
+
+- **It is seq 00 with GT semantics.** That is the demo configuration, not the
+  benchmark one.
+- **There are megabytes of disk writes between consecutive measurements.** A
+  full-fidelity frame is ~2.9 MB of `.vrgf`. The export is genuinely outside
+  the timed window - `export_scene.py` computes `timing_ms` *before* calling
+  `log_frame`, and that ordering is load-bearing - but outside the window is
+  not the same as on the bench. The write still perturbs the pull that follows
+  it.
+- **It is whatever machine baked the scene**, under whatever else it was doing.
+
+**The team's reported latency comes from the vrgrid-26 benchmark harness on
+seq 08** - `scripts/timing_table.py --seq 08` - and from the measurements
+recorded in `reports/`. Not from these files, and not from this repository at
+all: nothing here can produce a reportable number, which is the same guarantee
+the README opens with.
+
+The fields stay in `stats.jsonl`. They are worth having for spotting a bake
+that went strange - a frame that took ten times its neighbours means something
+happened - and that is the only thing to use them for. `scene.json` carries
+the same warning as `stats_note`, so a scene directory that gets copied
+somewhere without this document still carries it.
+
 Two Unreal modes exist and they differ from Rerun by very different amounts:
 
 | mode | flag | intent |

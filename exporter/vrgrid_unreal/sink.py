@@ -32,6 +32,20 @@ Output layout:
     <out>/frames/%06d.vrgf  one binary frame -- see format.py
     <out>/stats.jsonl       one JSON object per frame, for the HUD
 
+⚑ stats.jsonl's `perception_ms` / `engine_ms` ARE NOT REPORTABLE LATENCY.
+  They are what a BAKE took: seq 00, GT semantics, and a few megabytes of
+  .vrgf going to disk between every pair of measurements. The export is
+  outside the timed window -- `timing_ms` is computed before `log_frame`,
+  which is the whole point of the note above -- but "outside the window" is
+  not the same as "on the bench": the disk traffic still perturbs the pull
+  that follows it, and seq 00 with GT labels is not the benchmark
+  configuration. The team's reported latency comes from the vrgrid-26
+  benchmark harness on seq 08 (`scripts/timing_table.py --seq 08`), not from
+  this file. The fields stay because they are useful for spotting a bake
+  that went strange; they are not a result. The manifest carries the same
+  warning as `stats_note`, so a scene that travels without this file still
+  carries it.
+
 Absent chunk vs empty chunk, because Unreal has to tell them apart:
 
     chunk present, count 0   this layer IS empty now -- clear the instances
@@ -375,6 +389,19 @@ class UnrealSink:
             "coordinate_note": ("file is VRgrid world metres (x fwd, y LEFT, z up, "
                                 "right-handed); Unreal is cm, y RIGHT, left-handed"),
             "conversion_test_vectors": convert.conversion_test_vectors(),
+            # ⚑ A SCENE TRAVELS; THIS WARNING HAS TO TRAVEL WITH IT.
+            # stats.jsonl carries per-frame timings, and a per-frame timing
+            # sitting in a demo directory is going to be quoted by somebody.
+            # It is a bake timing, not a benchmark one -- see the module
+            # docstring -- so the manifest says so in the scene itself rather
+            # than only in a document beside it.
+            "stats_note": (
+                "stats.jsonl perception_ms / engine_ms are BAKE timings -- "
+                "seq 00, GT semantics, with .vrgf writes to disk between "
+                "frames. They are NOT reportable latency. Reported latency "
+                "comes from the vrgrid-26 benchmark harness on seq 08 "
+                "(scripts/timing_table.py --seq 08), not from these files."
+            ),
             # WHAT PRODUCED THIS SCENE. A baked export outlives the shell it
             # was baked in, and "which vrgrid built this, and did Patchwork++
             # actually run or did it fall back?" is not answerable from the
