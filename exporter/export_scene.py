@@ -114,9 +114,17 @@ def main(argv=None):
                                   palette=args.palette, engine=engine,
                                   features=features))
 
+    # The three facts about THIS RUN that the manifest's provenance block
+    # cannot work out for itself: what was asked of Patchwork++, whether a
+    # .rrd came out of the same pass, and the command that was typed. The
+    # rest -- the vrgrid commit, the installed versions, whether Patchwork++
+    # was actually there to run -- `provenance.collect` reads for itself.
+    full_argv = list(sys.argv) if argv is None else [sys.argv[0], *argv]
     sink_kwargs = dict(engine=engine, color_by=color_by, palette=args.palette,
                        ghost_removal=not show_ghosts, features=features,
-                       seq=seq, scene=args.scene, light=args.light)
+                       seq=seq, scene=args.scene, light=args.light,
+                       use_patchworkpp=not args.no_patchworkpp,
+                       rrd=bool(args.rrd), argv=full_argv)
     if args.map_interval is not None:
         sink_kwargs["map_interval"] = args.map_interval
     sink = UnrealSink(sched, out, **sink_kwargs)

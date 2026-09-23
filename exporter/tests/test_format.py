@@ -8,6 +8,7 @@ plausible, so the y-negation gets its own named test the way
 `tests/test_frame_convention.py` does for the vrgrid frames themselves.
 """
 
+import json
 import os
 import sys
 import tempfile
@@ -18,6 +19,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from vrgrid_unreal import format as F                      # noqa: E402
 from vrgrid_unreal import convert as C                     # noqa: E402
+from vrgrid_unreal import provenance as P                  # noqa: E402
 
 
 def test_roundtrip_preserves_header_and_every_chunk():
@@ -132,6 +134,99 @@ def test_conversion_vectors_would_catch_a_sign_error_on_any_axis():
         wrong = good.copy()
         wrong[:, axis] *= -1.0
         assert not np.allclose(wrong, good), f"axis {axis} flip is invisible"
+
+
+# --- provenance --------------------------------------------------------------
+#
+# A baked scene outlives the shell it was baked in. These check the SHAPE of
+# the block -- that every question it exists to answer has a slot -- not the
+# values, which are properties of whatever machine is running the test.
+
+#: Every key `scene.json` must carry under "provenance", with the sub-keys of
+#: the two nested blocks. Written out rather than derived from the code under
+#: test, so dropping a field is a test failure rather than a silent agreement.
+PROVENANCE_KEYS = {
+    "vrgrid": {"commit", "dirty", "source", "note"},
+    "patchworkpp": {"requested", "available", "used",
+                    "pypatchworkpp_version", "note"},
+    "semantic_source": None,
+    "semantic_source_param": None,
+    "semantic_source_note": None,
+    "rerun_sdk": None,
+    "rerun_sdk_note": None,
+    "rrd": None,
+    "python": None,
+    "argv": None,
+}
+
+
+def _check_provenance(block, where):
+    assert isinstance(block, dict), f"{where}: provenance is not an object"
+    for key, nested in PROVENANCE_KEYS.items():
+        assert key in block, f"{where}: provenance is missing {key!r}"
+        if nested is not None:
+            assert isinstance(block[key], dict), f"{where}: {key} is not an object"
+            missing = nested - set(block[key])
+            assert not missing, f"{where}: provenance.{key} is missing {sorted(missing)}"
+
+
+def test_provenance_block_has_every_key():
+    """The six questions the block exists to answer all have a slot, and the
+    facts the caller passes in come back unchanged."""
+    argv = ["export_scene.py", "--scene", "ghosts-on", "--rrd"]
+    block = P.collect(use_patchworkpp=False, rrd=True, argv=argv)
+    _check_provenance(block, "collect()")
+
+    # Run facts are recorded as given, not re-derived.
+    assert block["patchworkpp"]["requested"] is False
+    assert block["rrd"] is True
+    assert block["argv"] == argv
+
+
+def test_provenance_never_guesses_a_missing_fact():
+    """A fact that cannot be established is null WITH a reason, never filled
+    in with a plausible value -- an inferred commit would be believed."""
+    block = P.collect(use_patchworkpp=True, rrd=False, argv=[])
+    # No .rrd was written, so there is no rerun-sdk to report -- and the note
+    # has to say which of "absent" and "not asked for" it was.
+    assert block["rerun_sdk"] is None
+    assert block["rerun_sdk_note"]
+
+    vg = block["vrgrid"]
+    assert (vg["commit"] is None) == bool(vg["note"]),         "a missing commit must carry a reason, and a real one must not"
+    if vg["commit"] is not None:
+        assert len(vg["commit"]) == 40, vg["commit"]
+        assert isinstance(vg["dirty"], bool)
+
+
+def test_manifest_carries_the_provenance_block():
+    """The end that matters: what `_write_manifest` actually puts on disk.
+
+    Builds a real `UnrealSink` with no engine and no data -- the manifest is
+    written from the schedule and the environment alone, so this needs no
+    KITTI on the machine.
+    """
+    try:
+        from vrgrid.grid import schedule as schedule_mod
+        from vrgrid_unreal.sink import UnrealSink
+    except ImportError as exc:                              # pragma: no cover
+        raise AssertionError(
+            "the exporter's own dependencies are not importable, so the "
+            f"manifest cannot be written on this machine: {exc}"
+        ) from exc
+
+    sched = schedule_mod.load("5/10/20/40")
+    argv = ["export_scene.py", "--scene", "foveation"]
+    with tempfile.TemporaryDirectory() as d:
+        sink = UnrealSink(sched, d, engine=None, seq="00", scene="foveation",
+                          use_patchworkpp=True, rrd=False, argv=argv)
+        sink.finish()
+        with open(os.path.join(d, "scene.json"), encoding="utf-8") as f:
+            manifest = json.load(f)
+
+    assert "provenance" in manifest, "scene.json has no provenance block"
+    _check_provenance(manifest["provenance"], "scene.json")
+    assert manifest["provenance"]["argv"] == argv
 
 
 if __name__ == "__main__":

@@ -24,8 +24,11 @@ copy would drift the two windows apart one palette tweak at a time.
 Output layout:
 
     <out>/scene.json        manifest: rings, blind cone, fps, frame range,
-                            and the conversion vectors the C++ reader checks
-                            itself against at load
+                            the conversion vectors the C++ reader checks
+                            itself against at load, and a `provenance` block
+                            recording which vrgrid commit produced the scene
+                            and whether Patchwork++ actually ran -- see
+                            `provenance.py`
     <out>/frames/%06d.vrgf  one binary frame -- see format.py
     <out>/stats.jsonl       one JSON object per frame, for the HUD
 
@@ -49,6 +52,7 @@ from vrgrid.grid.quantise import dequantise_variance_cm2
 
 from . import convert
 from . import format as fmt
+from . import provenance as prov
 
 # Private imports, on purpose -- see the module docstring. Guarded so the
 # failure names the cause: without `rerun` installed there is no Rerun window
@@ -79,7 +83,8 @@ class UnrealSink:
     def __init__(self, schedule, out_dir, engine=None, color_by="class",
                  palette="semantickitti", ghost_removal=True, features=False,
                  map_interval=MAP_INTERVAL, seq=None, scene=None,
-                 light=False):
+                 light=False, use_patchworkpp=True, semantic_source=None,
+                 rrd=False, argv=None):
         self.sched = schedule
         self.engine = engine
         self.color_by = color_by
@@ -110,6 +115,14 @@ class UnrealSink:
         self._last_frame = None
         self._stats_path = os.path.join(self.out_dir, "stats.jsonl")
         self._stats = open(self._stats_path, "w", encoding="utf-8")
+
+        # Collected ONCE, at the start of the bake, and reused by the rewrite
+        # in `finish()`. The two manifests a bake writes must not disagree
+        # about what produced the scene, and re-shelling out to git between
+        # them is a way for them to.
+        self._provenance = prov.collect(use_patchworkpp=use_patchworkpp,
+                                        semantic_source=semantic_source,
+                                        rrd=rrd, argv=argv)
         self._write_manifest()
 
     # --- readouts, mirroring PipelineView -----------------------------------
@@ -362,6 +375,12 @@ class UnrealSink:
             "coordinate_note": ("file is VRgrid world metres (x fwd, y LEFT, z up, "
                                 "right-handed); Unreal is cm, y RIGHT, left-handed"),
             "conversion_test_vectors": convert.conversion_test_vectors(),
+            # WHAT PRODUCED THIS SCENE. A baked export outlives the shell it
+            # was baked in, and "which vrgrid built this, and did Patchwork++
+            # actually run or did it fall back?" is not answerable from the
+            # .vrgf files. Every field is read from the process or from the
+            # checkout on disk, never inferred -- see `provenance.py`.
+            "provenance": self._provenance,
         }
         tmp = os.path.join(self.out_dir, "scene.json.tmp")
         with open(tmp, "w", encoding="utf-8") as f:
