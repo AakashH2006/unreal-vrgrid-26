@@ -162,9 +162,14 @@ public:
 	 *
 	 *    The floor was zero for a real reason -- an earlier 3.2 m/s floor let
 	 *    the car arrive at somebody still mid-road and drive through them. The
-	 *    fix is not a hard stop, it is giving the crosser time to CLEAR:
-	 *    `TriggerScriptedCross` now leads by the time to cross the whole road,
-	 *    not the time to reach the lane. `YieldPanicGapM` stays as a net. */
+	 *    fix is not a hard stop, it is TIMING: `ScriptedLeadM()` fires the
+	 *    crossing when the car is (time for the pedestrian to reach the near
+	 *    edge of the ego lane) x (speed) PLUS 20 m of braking room away, so
+	 *    the car has already settled to this floor by the time it arrives.
+	 *    Leading by the time to cross the WHOLE road was tried and
+	 *    overcorrected -- they were clear before the car was close enough to
+	 *    react and the yield never engaged. See `ScriptedLeadM()` and
+	 *    RERUN-VS-UNREAL.md §3b. `YieldPanicGapM` stays as a net. */
 	UPROPERTY(EditAnywhere, Category = "VRgrid|Sim")
 	float YieldFloorMS = 3.4f;
 

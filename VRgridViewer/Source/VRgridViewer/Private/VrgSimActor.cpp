@@ -1987,13 +1987,23 @@ double AVrgSimActor::ZRampAt(float AlongM) const
 
 float AVrgSimActor::ScriptedLeadM() const
 {
-	// ⚑ LEAD BY THE TIME TO CLEAR, NOT THE TIME TO ARRIVE.
-	//   This used to lead by (PaveY + LaneY) / CrossSpeed -- the time to REACH
-	//   the ego's lane -- which by construction puts a pedestrian in the lane
-	//   at the exact moment the car gets there. That only works if the car
-	//   then stops, and stopping is what we are removing. Leading by the time
-	//   to get past the FAR edge of the lane means they are clear as it
-	//   arrives, which is what the recorded crossing actually looks like.
+	// ⚑ TIME TO REACH THE LANE, PLUS ROOM TO BRAKE. It took two attempts to
+	//   get here, and BOTH of the obvious answers are wrong:
+	//
+	//   Leading by the time to REACH the ego's lane, on its own, puts a
+	//   pedestrian in the lane at the exact moment the car gets there. That
+	//   works only if the car then stops, and stopping is what we are
+	//   removing (see YieldFloorMS -- the recorded ego eased to 3.4 m/s and
+	//   never halted).
+	//
+	//   Leading by the time to CLEAR the far edge overcorrects the other way:
+	//   they are gone before the car is close enough to react, so it sails
+	//   through at cruise and the yield never engages at all.
+	//
+	//   What works is the first one PLUS enough distance to shed the speed
+	//   in, which is what this returns. The car is already at the yield speed
+	//   when it arrives, and the crossing still reads as a crossing.
+	//   RERUN-VS-UNREAL.md §3b records the measurement behind that.
 	const float PaveY = RoadWidthM * 0.5f + 2.8f;
 
 	// Time for them to reach the NEAR edge of the ego's lane -- the moment the
@@ -2705,8 +2715,17 @@ void AVrgSimActor::Tick(float DeltaSeconds)
 		}
 	}
 
-	// TEMPORARY VERIFICATION: did anything actually drive through a person?
-	// Same lane, and overlapping along the road, is a hit however it happened.
+	// ⚑ THE COLLISION DETECTORS. PERMANENT, ALWAYS ON, AND SILENT UNLESS
+	//   SOMETHING GOES WRONG -- which is exactly the point, and is what the
+	//   README documents them as. (This block was marked "TEMPORARY
+	//   VERIFICATION" while the yielding was being fixed; it outlived that.
+	//   The measured result -- 0 ego hits, 0 traffic hits, 0 near passes over
+	//   140 s -- is only worth quoting because the check that produced it is
+	//   still running.) Do not delete them: a demo that has stopped checking
+	//   whether it drives through people is a demo that will, on stage.
+	//
+	//   Same lane, and overlapping along the road, is a hit however it
+	//   happened.
 	{
 		auto Overlap = [&](float AlongA, float LatA, float AlongB, float LatB) -> bool
 		{

@@ -4,7 +4,7 @@ A second renderer for the VRgrid demo, fed from the **same per-frame call**
 the Rerun window is fed from. Both windows show one run of one `MapEngine` on
 one frame index — they are not two renderings of similar data.
 
-Nothing here touches the `vrgrid` repo, and nothing here can move a reported
+Nothing here touches the `vrgrid-26` repo, and nothing here can move a reported
 number: everything that produces one (map hash, latency, per-ring RMSE, ρ)
 happens upstream in `MapEngine.step`, and this runs strictly after it.
 
@@ -15,7 +15,7 @@ happens upstream in `MapEngine.step`, and this runs strictly after it.
 | | |
 |---|---|
 | Exporter (`exporter/`) | working, verified on live KITTI seq 00 |
-| Binary frame format + tests | working, 10/10 |
+| Binary frame format + tests | working, 14/14 (`python exporter/tests/test_format.py`) |
 | Unreal C++ module (game + editor) | builds, UE 5.8 / MSVC 14.44 |
 | Per-instance colour materials | generated, `used_with_ISM = True` |
 | Viewer | **renders** -- points, cells, ring squares, blind cone |
@@ -46,7 +46,7 @@ run the viewer through `UnrealEditor.exe -game`, which `demo.ps1 play` does.
 .\scripts\demo.ps1 both ghosts-on        # Rerun and Unreal, side by side
 ```
 
-Scene names are the ones `scripts/demo.sh` already uses in the vrgrid repo —
+Scene names are the ones `scripts/demo.sh` already uses in the `vrgrid-26` repo —
 `foveation`, `ghosts-off`, `ghosts-on`, `traffic`, `reflectivity`, `features` —
 so asking for `ghosts-on` here means the same sequence, frame range and colour
 layer it means there. One name is **not** on that list: `seq00-full`, the
@@ -269,7 +269,7 @@ at all and is rejected as a stray positional argument. The exporter’s own flag
 if you call it directly rather than through `demo.ps1`, is still `--light`.
 
 `seq00-full` is **Unreal-only**. Every other name here is one `scripts/demo.sh`
-uses in the vrgrid repo, and that correspondence is load-bearing; this one has
+uses in the `vrgrid-26` repo, and that correspondence is load-bearing; this one has
 no Rerun counterpart to correspond to, because the Rerun demo has no full-route
 scene. It is kept in a separate table on both sides (`UNREAL_ONLY_SCENES` in
 `export_scene.py`, `$UnrealOnlyScenes` in `demo.ps1`) so the matching list stays
@@ -389,7 +389,7 @@ fail **silently**:
 
 ### Scope
 
-Only `Downloads\Unreal-Vrgrid` is written to. The `vrgrid` clone and the GitHub
+Only `Downloads\Unreal-Vrgrid` is written to. The `vrgrid-26` clone and the GitHub
 repo are read-only — no commits, no branches, no PRs.
 
 ### Known limits

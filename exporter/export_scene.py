@@ -42,7 +42,7 @@ SCENES = {
 
 # ⚑ UNREAL-ONLY. Deliberately NOT in SCENES above.
 #   That table has to keep matching `scripts/demo.sh: scene_args()` in the
-#   vrgrid repo one name at a time -- a scene that means one thing in Rerun
+#   vrgrid-26 repo one name at a time -- a scene that means one thing in Rerun
 #   and another in Unreal is worse than no scene, and a name that exists on
 #   one side only is exactly the drift it guards against. This one has no
 #   Rerun counterpart to drift from: the Rerun demo has no full-route scene,
@@ -119,7 +119,7 @@ def main(argv=None):
         # loader wants the directory HOLDING poses/ and sequences/, which in
         # the working clone is data/dataset, not data.
         p.error("VRGRID_DATA_ROOT is not set. Point it at the directory that "
-                "holds poses/ and sequences/ (in the vrgrid clone that is "
+                "holds poses/ and sequences/ (in the vrgrid-26 clone that is "
                 "data/dataset, NOT data).")
 
     from vrgrid.grid import schedule as schedule_mod

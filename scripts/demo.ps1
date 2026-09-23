@@ -32,7 +32,7 @@ param(
     [switch]$Diag,
     [int]$Shot = -1,
     [int]$Frames = 0,
-    [string]$VrgridRepo = "$env:USERPROFILE\vrgrid",
+    [string]$VrgridRepo = "$env:USERPROFILE\vrgrid-26",
     [string]$UnrealRoot = "C:\Program Files\Epic Games\UE_5.8"
 )
 
@@ -40,7 +40,7 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 $Project = Join-Path $Root "VRgridViewer\VRgridViewer.uproject"
 $ScenesDir = Join-Path $Root "scenes"
-# The names `scripts/demo.sh: scene_args()` uses in the vrgrid repo. This list
+# The names `scripts/demo.sh: scene_args()` uses in the vrgrid-26 repo. This list
 # has to keep matching that one, so nothing Unreal-only goes in it.
 $Scenes = @("foveation", "ghosts-off", "ghosts-on", "traffic", "reflectivity", "features")
 # Unreal-only, and kept apart for that reason -- see export_scene.py's
@@ -95,16 +95,28 @@ switch ($Command) {
 
     # The editor target is what cooks content and authors materials. Without
     # the .NET Framework SDK, UnrealBuildTool refuses it (SwarmInterface).
-    $netfx = Test-Path "C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework"
-    if ($netfx) { Write-Host "netfx sdk     present" }
+    #
+    # ⚑ THE DIRECTORY UBT WANTS IS NETFXSDK, AND THIS TESTED THE WRONG ONE.
+    #   It checked `Reference Assemblies\...\.NETFramework` -- the TARGETING
+    #   PACK -- and then recommended the Visual Studio component
+    #   `Microsoft.Net.Component.4.6.2.SDK`. Per the README that component
+    #   does NOT provide NETFXSDK on this Build Tools channel: only the
+    #   targeting pack lands, which is not enough. So the check could say
+    #   "present" on a machine where the editor target still would not
+    #   build, and then recommend the thing the README says does not work.
+    #   Both halves now match the README: test for NETFXSDK\4.8.1, and
+    #   recommend the winget package that creates it.
+    $netfxSdk = "C:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1"
+    if (Test-Path $netfxSdk) { Write-Host "netfx sdk     present  ($netfxSdk)" }
     else {
-        Warn "netfx sdk     MISSING -- the EDITOR target cannot build, so there are"
-        Warn "              no colour materials and no cooked content. Install with:"
+        Warn "netfx sdk     MISSING at $netfxSdk"
+        Warn "              -- the EDITOR target cannot build, so there are no colour"
+        Warn "              materials and no cooked content. Install with:"
         Warn ""
-        Warn '              & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vs_installer.exe" modify ^'
-        Warn '                --installPath "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools" ^'
-        Warn '                --add Microsoft.Net.Component.4.6.2.SDK ^'
-        Warn '                --add Microsoft.Net.Component.4.6.2.TargetingPack --passive --norestart'
+        Warn '              winget install --id Microsoft.DotNet.Framework.DeveloperPack_4 --silent --accept-package-agreements --accept-source-agreements'
+        Warn ""
+        Warn "              NOT the Visual Studio component Microsoft.Net.Component.4.6.2.SDK:"
+        Warn "              on this Build Tools channel it lands the targeting pack only."
     }
 
     if (Test-Path $ScenesDir) {
