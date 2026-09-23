@@ -106,6 +106,97 @@ scenes/<name>/               a baked export
 
 ---
 
+## Upstream dependencies
+
+Nothing here is a fork of anything in `vrgrid-26` — the exporter *reaches into*
+it. That is deliberate (the colours and the ring geometry must not be restated
+here, or the two windows drift one palette tweak at a time), and it is a
+coupling, so here is all of it in one place.
+
+**Verified against `Stxtics03/vrgrid-26` `main` at commit
+`8acbfe91ca24de4edd1305a3d59ca5c15ae5d40d`.** All 32 symbols below were present
+at that commit. If a name here does not resolve, this list is the diff to read.
+
+⚑ marks a **private** name — a leading underscore, or an attribute that is an
+implementation detail of a class rather than part of its interface. These are
+the ones that can be renamed upstream without anyone thinking they broke an
+API, and they are where this will break first.
+
+### `vrgrid.dash.pipeline_view` — the Rerun view (`exporter/vrgrid_unreal/sink.py`)
+
+| symbol | | why |
+|---|---|---|
+| `get_display_points(frame, ghost_removal, color_by, palette)` | | the point positions and colours, from the same call Rerun makes |
+| `MAP_INTERVAL` | | frames between map redraws; the manifest copies it |
+| `PipelineView(...)` | | constructed by `export_scene.py --rrd` so one pass feeds both |
+| `_height_ramp` | ⚑ | occupied-cell colour |
+| `_confidence_ramp` | ⚑ | §7.5 confidence colour |
+| `_FREE_RGBA`, `_UNKNOWN_RGBA` | ⚑ | free / unknown cell colour |
+| `_CURB_RGBA`, `_POTHOLE_RGBA` | ⚑ | §7.4 feature colour |
+
+`PipelineView`’s keyword arguments are part of this too: `schedule`, `spawn`,
+`save_path`, `color_by`, `ghost_removal`, `palette`, `engine`, `features`.
+
+### `vrgrid.dash` — the rest
+
+| symbol | | why |
+|---|---|---|
+| `palettes.GHOST_RGB` | | the removed-points colour |
+| `_config.blind_cone_radius_m()` | ⚑ | private MODULE; the blind cone in the manifest |
+| `_config.playback_fps()` | ⚑ | private MODULE; playback rate and every `time_s` |
+
+### `vrgrid.run` — the pipeline and the map engine
+
+| symbol | | why |
+|---|---|---|
+| `__main__.iter_pipeline(seq, max_frames, use_patchworkpp=, start_frame=)` | | the frame source |
+| `__main__.PerceptionFrame` fields `index`, `points_world`, `moving`, `pose`, `vehicle_xyz_world`, `ground_method` | | read per frame |
+| `engine.MapEngine(schedule, ghost_removal=)` | | the map back end |
+| `engine.StepCounters` fields `points`, `cells_touched`, `occupied`, `cleared`, `protected`, `truncated` | | written to `stats.jsonl` |
+| `MapEngine.occupied_cells()` | | the occupied layer |
+| `MapEngine.thresholds`, `MapEngine.buffers` | | passed through to `features.detect` |
+| `MapEngine.handle` | ⚑ | the `Allocation`: `.rings` (`RingLayout.offset`/`.slots`/`.cell_m`/`.side`) and `.grid["height_variance"]` / `.grid["obs_count"]` |
+| `MapEngine._centres(slots, ego, out_x, out_y, out_z)` | ⚑ | world-frame cell centres for arbitrary slots |
+| `MapEngine.occ_state` | ⚑ | the free / unknown state array |
+
+### `vrgrid.grid` and `vrgrid.cell`
+
+| symbol | | why |
+|---|---|---|
+| `cell.CELL_BYTES`, `cell.OCC_FREE`, `cell.OCC_UNKNOWN` | | the manifest’s map size, and the two state values |
+| `grid.schedule.load(name)` and `Schedule.name` / `.base_cell_m` / `.total_cells` / `.vertical_extent_m` / `.rings[].ring` / `.half_width_m` / `.cell_m` / `.cells` | | the ring schedule, copied into the manifest |
+| `grid.quantise.dequantise_variance_cm2(code)` | | `sigma_cm`; the quantisation runs the other way, so this cannot be a multiply |
+| `grid.confidence.drivable_confidence(soa, ring_slice, side, cell_m, thresholds)` | | §7.5 |
+| `grid.features.detect(soa, schedule, rings, thresholds, buffers=)` | | §7.4 curbs and potholes |
+
+### `vrgrid.perception`
+
+| symbol | | why |
+|---|---|---|
+| `ground._HAVE_PATCHWORKPP` | ⚑ | read by `demo.ps1 check` and by the manifest’s provenance block |
+
+### `scripts/demo.ps1`
+
+Beyond the above it depends on `import vrgrid` succeeding and on
+`vrgrid.__file__`, on `import rerun` and `rerun.__version__`, and on
+`python -m rerun <file>.rrd` launching the viewer.
+
+### Re-bake when the ground output changes
+
+> **Any change to ground segmentation output — for example the pending
+> Patchwork++ singleton fix, `OPEN-ITEMS.md` **D1** — makes every baked scene
+> and every `.rrd` beside it stale. Re-bake; do not mix a new pipeline with an
+> old export.**
+
+That is not a formality. Ground decides the elevation estimate, which decides
+which cells are occupied, which decides the map — so an old scene and a new
+pipeline disagree about the thing the demo is showing, and they disagree
+*plausibly*, which is the worst way. The manifest’s `provenance.vrgrid.commit`
+is there to make the mismatch findable: compare it against the checkout before
+believing a scene.
+
+---
+
 ## The coordinate conversion
 
 ```
